@@ -210,27 +210,27 @@
     <!-- SETTINGS SCREEN -->
     <div class="screen" id="screen-settings">
       <div class="card">
-        <div class="card-title">ANTHROPIC API KEY</div>
-        <div style="background:rgba(232,160,32,0.08); border:1px solid rgba(232,160,32,0.25); border-radius:8px; padding:10px 12px; margin-bottom:12px;">
-          <p style="font-size:12px; color:var(--gold-light); line-height:1.6;">
-            ⚠ <strong style="color:var(--gold);">Important:</strong> Open this file in a web server or use <strong style="color:var(--white);">Chrome</strong> with the file opened via <code style="font-size:11px; background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:3px;">http://</code> not <code style="font-size:11px; background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:3px;">file://</code> for API calls to work. Or host on any free web host.
+        <div class="card-title">GOOGLE GEMINI API KEY — FREE</div>
+        <div style="background:rgba(46,204,113,0.08); border:1px solid rgba(46,204,113,0.3); border-radius:8px; padding:10px 12px; margin-bottom:12px;">
+          <p style="font-size:12px; color:#2ecc71; line-height:1.6;">
+            ✓ <strong style="color:#fff;">100% Free</strong> — Google gives 1,500 requests/day at no cost. No credit card needed. More than enough for 50 sheets/day.
           </p>
         </div>
         <div class="instruction-step">
           <div class="step-num">1</div>
-          <div class="step-text">Visit <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> and sign in or create an account</div>
+          <div class="step-text">Go to <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> — sign in with your Google account</div>
         </div>
         <div class="instruction-step">
           <div class="step-num">2</div>
-          <div class="step-text">Go to <strong>API Keys</strong> → <strong>Create Key</strong> → copy the key starting with <strong>sk-ant-...</strong></div>
+          <div class="step-text">Click <strong>"Create API Key"</strong> → copy the key (starts with <strong>AIza...</strong>)</div>
         </div>
         <div class="instruction-step">
           <div class="step-num">3</div>
-          <div class="step-text">Paste below. Keys do <strong>not expire</strong> unless you delete them. Each user on their own phone/PC uses their own key.</div>
+          <div class="step-text">Paste it below and tap <strong>Save</strong>. Free forever — 1,500 scans/day limit.</div>
         </div>
         <div style="margin-top:12px;">
           <div class="key-input-wrap">
-            <input type="password" class="key-input" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off">
+            <input type="password" class="key-input" id="api-key-input" placeholder="AIzaSy..." autocomplete="off">
             <button class="btn btn-outline btn-sm" onclick="saveKey()">SAVE</button>
           </div>
           <div id="key-status" style="display:none" class="key-status"></div>
@@ -268,9 +268,9 @@
         <div class="card-title">ABOUT</div>
         <p style="font-size:12px; color:var(--text-muted); line-height:1.6;">
           Carlton Garments (Pvt) Ltd<br>
-          Transport Form OCR Scanner v1.1<br>
-          Uses Claude Haiku Vision AI · Up to 50 sheets<br>
-          Each user stores their own API key locally
+          Transport Form OCR Scanner v1.2<br>
+          Uses Google Gemini Vision AI (Free)<br>
+          1,500 free scans/day · Up to 50 sheets
         </p>
       </div>
     </div>
@@ -340,12 +340,12 @@ function loadKey() {
 }
 function saveKey() {
   const k = document.getElementById('api-key-input').value.trim();
-  if (!k.startsWith('sk-ant')) {
-    showKeyStatus('Key must start with sk-ant-...', false);
+  if (!k.startsWith('AIza') || k.length < 20) {
+    showKeyStatus('Key must start with AIza... — get it from aistudio.google.com/apikey', false);
     return;
   }
   localStorage.setItem('cg_api_key', k);
-  showKeyStatus('API key saved successfully!', true);
+  showKeyStatus('Gemini API key saved! Ready to scan.', true);
 }
 function showKeyStatus(msg, ok) {
   const el = document.getElementById('key-status');
@@ -434,8 +434,8 @@ function updateStats() {
 // ─── PROCESSING ───────────────────────────────────────────
 async function processAll() {
   const key = loadKey();
-  if (!key || !key.startsWith('sk-ant')) {
-    showToast('Please save your API key in Settings first');
+  if (!key || !key.startsWith('AIza')) {
+    showToast('Please save your Gemini API key in Settings first');
     switchTab('settings');
     document.querySelectorAll('.tab')[2].classList.add('active');
     return;
@@ -490,48 +490,47 @@ async function extractFromImage(file, apiKey) {
 
   const mediaType = file.type || 'image/jpeg';
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  // Google Gemini API — free tier: 1500 requests/day
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+  const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1500,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
-          { type: 'text', text: PROMPT }
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mediaType, data: b64 } },
+          { text: PROMPT }
         ]
-      }]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 1500
+      }
     })
   });
 
   if (!response.ok) {
     const errBody = await response.json().catch(() => ({}));
     const msg = errBody.error?.message || 'API error ' + response.status;
-    // Surface friendly errors
-    if (response.status === 401) throw new Error('Invalid API key — check Settings');
-    if (response.status === 429) throw new Error('Rate limit hit — wait a moment and retry');
-    if (response.status === 400) throw new Error('Bad request: ' + msg);
+    if (response.status === 400) throw new Error('Invalid API key — check Settings');
+    if (response.status === 403) throw new Error('API key invalid or not enabled');
+    if (response.status === 429) throw new Error('Rate limit hit — wait and retry');
     throw new Error(msg);
   }
 
   const result = await response.json();
-  const text = result.content.map(c => c.text || '').join('').trim();
-  // Strip markdown fences if any
-  const clean = text.replace(/```json[\s\S]*?```|```/g, '').trim();
+  const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  if (!text) throw new Error('Empty response from Gemini');
+
+  // Strip markdown fences
+  const clean = text.replace(/```json[\s\S]*?```|```[\s\S]*?```|```/g, '').trim();
   let parsed;
   try { parsed = JSON.parse(clean); }
   catch(e) {
-    // Try to extract JSON object from response
     const match = clean.match(/\{[\s\S]*\}/);
     if (match) parsed = JSON.parse(match[0]);
-    else throw new Error('Could not parse AI response as JSON');
+    else throw new Error('Could not parse AI response');
   }
   return parsed;
 }
