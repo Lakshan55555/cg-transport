@@ -147,6 +147,7 @@
   .step-text { font-size:12px; color:var(--text-muted); line-height:1.6; }
   .step-text a { color:var(--gold); text-decoration:none; }
   .step-text strong { color:var(--white); }
+  .field-label { font-size:11px; color:var(--text-muted); margin-bottom:3px; }
 
   /* scrollbar */
   ::-webkit-scrollbar { width:4px; }
@@ -179,17 +180,81 @@
         <div class="stat-box"><div class="stat-num" id="stat-errors">0</div><div class="stat-label">Errors</div></div>
       </div>
 
-      <div id="drop-zone" onclick="document.getElementById('file-input').click()">
-        <div class="icon">📷</div>
-        <strong>Tap to Add Transport Forms</strong>
-        <p>Select photos from camera or gallery<br>Supports JPG, PNG — up to 50 sheets</p>
+      <!-- MODE TOGGLE -->
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-gold" id="mode-ai-btn" onclick="setMode('ai')" style="flex:1; padding:10px; font-size:13px;">🤖 AI AUTO</button>
+        <button class="btn btn-outline" id="mode-manual-btn" onclick="setMode('manual')" style="flex:1; padding:10px; font-size:13px;">✏ MANUAL</button>
       </div>
-      <input type="file" id="file-input" accept="image/*" multiple capture="environment" onchange="addFiles(this.files)">
 
-      <div id="queue-list" style="display:none; flex-direction:column; gap:8px;"></div>
+      <!-- AI MODE -->
+      <div id="ai-mode">
+        <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <div class="icon">📷</div>
+          <strong>Tap to Add Transport Forms</strong>
+          <p>Select photos from camera or gallery<br>Supports JPG, PNG — up to 50 sheets</p>
+        </div>
+        <input type="file" id="file-input" accept="image/*" multiple capture="environment" onchange="addFiles(this.files)">
+        <div id="queue-list" style="display:none; flex-direction:column; gap:8px;"></div>
+        <button class="btn btn-gold" id="process-btn" onclick="processAll()" disabled>EXTRACT DATA FROM PHOTOS</button>
+        <button class="btn btn-outline btn-sm" onclick="clearQueue()" id="clear-btn" style="display:none">Clear All</button>
+      </div>
 
-      <button class="btn btn-gold" id="process-btn" onclick="processAll()" disabled>EXTRACT DATA FROM PHOTOS</button>
-      <button class="btn btn-outline btn-sm" onclick="clearQueue()" id="clear-btn" style="display:none">Clear All</button>
+      <!-- MANUAL MODE -->
+      <div id="manual-mode" style="display:none; flex-direction:column; gap:10px;">
+        <div class="card" style="padding:12px;">
+          <div class="card-title">PHOTO + MANUAL ENTRY</div>
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Take photo → fill in fields while looking at it → Save to Results</p>
+
+          <!-- Photo area -->
+          <div id="manual-photo-zone" onclick="document.getElementById('manual-file-input').click()" style="border:2px dashed var(--border); border-radius:10px; padding:16px; text-align:center; cursor:pointer; margin-bottom:12px;">
+            <div id="manual-photo-preview" style="display:none;"><img id="manual-img" style="max-width:100%; max-height:200px; border-radius:8px; object-fit:contain;"></div>
+            <div id="manual-photo-placeholder">
+              <div style="font-size:28px;">📷</div>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:4px;">Tap to take/select photo</p>
+            </div>
+          </div>
+          <input type="file" id="manual-file-input" accept="image/*" capture="environment" onchange="setManualPhoto(this.files[0])" style="display:none;">
+
+          <!-- Form fields -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div><div class="field-label">Date</div><input class="key-input" id="m-date" placeholder="13/03/26" type="text"></div>
+            <div><div class="field-label">Driver Name</div><input class="key-input" id="m-driver" placeholder="Rusiru"></div>
+            <div><div class="field-label">Vehicle No</div><input class="key-input" id="m-vehicle" placeholder="JF-7031"></div>
+            <div><div class="field-label">Vehicle Type</div>
+              <select class="key-input" id="m-vtype">
+                <option value="VAN">VAN</option>
+                <option value="BUS">BUS</option>
+                <option value="CAB">CAB</option>
+                <option value="LARGE BUS">LARGE BUS</option>
+              </select>
+            </div>
+            <div><div class="field-label">Departure</div><input class="key-input" id="m-dep" placeholder="9:21 PM" type="text"></div>
+            <div><div class="field-label">Arrival</div><input class="key-input" id="m-arr" placeholder="10:10 PM" type="text"></div>
+            <div><div class="field-label">Rate/KM</div><input class="key-input" id="m-rate" placeholder="66" type="number" oninput="calcManualAmt()"></div>
+            <div><div class="field-label">No. of KM</div><input class="key-input" id="m-km" placeholder="61" type="number" oninput="calcManualAmt()"></div>
+          </div>
+          <div style="margin-top:8px;"><div class="field-label">Destination</div><input class="key-input" id="m-dest" placeholder="Anuradhapura Road" style="width:100%"></div>
+          <div style="margin-top:8px;"><div class="field-label">Description</div>
+            <select class="key-input" id="m-desc" style="width:100%">
+              <option value="OT TRANSPORT">OT TRANSPORT</option>
+              <option value="SUB ROUTE">SUB ROUTE</option>
+              <option value="EXTRA TRANSPORT">EXTRA TRANSPORT</option>
+              <option value="SUB CONTRACT">SUB CONTRACT</option>
+              <option value="CHINESE SHOPPING">CHINESE SHOPPING</option>
+              <option value="WITH MR.ROHITHA">WITH MR.ROHITHA</option>
+            </select>
+          </div>
+
+          <!-- Amount preview -->
+          <div style="margin-top:10px; background:rgba(232,160,32,0.08); border:1px solid var(--border); border-radius:8px; padding:10px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:12px; color:var(--text-muted);">Amount (Rate × KM)</span>
+            <span style="font-family:'Rajdhani',sans-serif; font-size:18px; font-weight:700; color:var(--gold);" id="m-amt-preview">—</span>
+          </div>
+
+          <button class="btn btn-gold" style="margin-top:12px;" onclick="saveManualEntry()">✓ SAVE TO RESULTS</button>
+          <button class="btn btn-outline btn-sm" style="margin-top:6px;" onclick="clearManualForm()">Clear Form</button>
+        </div>
+      </div>
     </div>
 
     <!-- RESULTS SCREEN -->
@@ -268,7 +333,7 @@
         <div class="card-title">ABOUT</div>
         <p style="font-size:12px; color:var(--text-muted); line-height:1.6;">
           Carlton Garments (Pvt) Ltd<br>
-          Transport Form OCR Scanner v1.2<br>
+          Transport Form OCR Scanner v1.3<br>
           Uses Google Gemini Vision AI (Free)<br>
           1,500 free scans/day · Up to 50 sheets
         </p>
@@ -491,7 +556,7 @@ async function extractFromImage(file, apiKey) {
   const mediaType = file.type || 'image/jpeg';
 
   // Google Gemini API — free tier: 1500 requests/day
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -715,6 +780,87 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ─── MODE SWITCHING ───────────────────────────────────────
+let currentMode = 'ai';
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('ai-mode').style.display = mode === 'ai' ? 'flex' : 'none';
+  document.getElementById('ai-mode').style.flexDirection = 'column';
+  document.getElementById('ai-mode').style.gap = '10px';
+  document.getElementById('manual-mode').style.display = mode === 'manual' ? 'flex' : 'none';
+  document.getElementById('mode-ai-btn').className = mode === 'ai' ? 'btn btn-gold' : 'btn btn-outline';
+  document.getElementById('mode-manual-btn').className = mode === 'manual' ? 'btn btn-gold' : 'btn btn-outline';
+  document.getElementById('mode-ai-btn').style.flex = '1';
+  document.getElementById('mode-ai-btn').style.padding = '10px';
+  document.getElementById('mode-ai-btn').style.fontSize = '13px';
+  document.getElementById('mode-manual-btn').style.flex = '1';
+  document.getElementById('mode-manual-btn').style.padding = '10px';
+  document.getElementById('mode-manual-btn').style.fontSize = '13px';
+}
+
+// ─── MANUAL ENTRY ─────────────────────────────────────────
+let manualPhotoName = null;
+function setManualPhoto(file) {
+  if (!file) return;
+  manualPhotoName = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('manual-img').src = e.target.result;
+    document.getElementById('manual-photo-preview').style.display = 'block';
+    document.getElementById('manual-photo-placeholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function calcManualAmt() {
+  const rate = parseFloat(document.getElementById('m-rate').value) || 0;
+  const km = parseFloat(document.getElementById('m-km').value) || 0;
+  const el = document.getElementById('m-amt-preview');
+  el.textContent = (rate && km) ? (rate * km).toFixed(0) : '—';
+}
+
+function saveManualEntry() {
+  const date = document.getElementById('m-date').value.trim();
+  const driver = document.getElementById('m-driver').value.trim();
+  if (!driver) { showToast('Please enter driver name'); return; }
+  const rate = parseFloat(document.getElementById('m-rate').value) || null;
+  const km = parseFloat(document.getElementById('m-km').value) || null;
+  const record = {
+    date: date || null,
+    driver_name: driver,
+    vehicle_number: document.getElementById('m-vehicle').value.trim() || null,
+    vehicle_type: document.getElementById('m-vtype').value,
+    departure_time: document.getElementById('m-dep').value.trim() || null,
+    arrival_time: document.getElementById('m-arr').value.trim() || null,
+    rate_per_km: rate,
+    number_of_km: km,
+    amount: (rate && km) ? rate * km : null,
+    destination: document.getElementById('m-dest').value.trim() || null,
+    description: document.getElementById('m-desc').value,
+    passengers: [],
+    _source: manualPhotoName || 'manual entry',
+    _id: Date.now() + Math.random()
+  };
+  results.push(record);
+  updateStats();
+  showToast('✓ Record saved to Results!');
+  clearManualForm();
+  renderResults();
+}
+
+function clearManualForm() {
+  ['m-date','m-driver','m-vehicle','m-dep','m-arr','m-rate','m-km','m-dest'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('m-vtype').value = 'VAN';
+  document.getElementById('m-desc').value = 'OT TRANSPORT';
+  document.getElementById('m-amt-preview').textContent = '—';
+  document.getElementById('manual-photo-preview').style.display = 'none';
+  document.getElementById('manual-photo-placeholder').style.display = 'block';
+  document.getElementById('manual-file-input').value = '';
+  manualPhotoName = null;
 }
 
 // ─── INIT ─────────────────────────────────────────────────
