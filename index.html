@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a2744">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CG Transport">
+<link rel="manifest" href="manifest.json">
+<title>CG Transport Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #1a2744;
+    --navy-light: #253566;
+    --navy-mid: #1e2f52;
+    --gold: #e8a020;
+    --gold-light: #f5c55a;
+    --gold-dim: #a06b10;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --white: #f0f2f7;
+    --text-muted: #8899bb;
+    --card-bg: #1e2f52;
+    --border: rgba(232,160,32,0.25);
+    --radius: 14px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; background:#0f1826; color:var(--white); font-family:'DM Sans',sans-serif; overflow:hidden; }
+
+  /* LAYOUT */
+  #app { display:flex; flex-direction:column; height:100vh; }
+  #header { background:var(--navy); border-bottom:1.5px solid var(--border); padding:14px 18px 12px; flex-shrink:0; }
+  #header h1 { font-family:'Rajdhani',sans-serif; font-size:20px; font-weight:700; color:var(--gold); letter-spacing:1px; }
+  #header p { font-size:11px; color:var(--text-muted); margin-top:1px; }
+
+  #tabs { display:flex; background:var(--navy); border-bottom:1px solid var(--border); flex-shrink:0; }
+  .tab { flex:1; padding:10px 0; text-align:center; font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:600; letter-spacing:.5px; color:var(--text-muted); border-bottom:2px solid transparent; transition:.2s; cursor:pointer; }
+  .tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+
+  #content { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+  .screen { display:none; flex-direction:column; gap:12px; }
+  .screen.active { display:flex; }
+
+  /* CARDS */
+  .card { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:14px; }
+  .card-title { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:700; letter-spacing:1px; color:var(--gold); margin-bottom:10px; text-transform:uppercase; }
+
+  /* CAPTURE SCREEN */
+  #drop-zone { border:2px dashed var(--border); border-radius:var(--radius); padding:30px 20px; text-align:center; cursor:pointer; transition:.2s; background:rgba(232,160,32,0.03); }
+  #drop-zone:active { border-color:var(--gold); background:rgba(232,160,32,0.08); }
+  #drop-zone .icon { font-size:40px; margin-bottom:8px; }
+  #drop-zone p { font-size:13px; color:var(--text-muted); line-height:1.5; }
+  #drop-zone strong { color:var(--white); display:block; font-size:15px; margin-bottom:4px; }
+  #file-input { display:none; }
+
+  /* QUEUE */
+  .queue-item { display:flex; align-items:center; gap:10px; padding:10px 12px; background:rgba(255,255,255,0.04); border-radius:10px; border:1px solid rgba(255,255,255,0.07); }
+  .queue-thumb { width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0; background:var(--navy); }
+  .queue-info { flex:1; min-width:0; }
+  .queue-name { font-size:12px; color:var(--white); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .queue-status { font-size:11px; margin-top:2px; }
+  .status-pending { color:var(--text-muted); }
+  .status-processing { color:var(--gold); }
+  .status-done { color:var(--green); }
+  .status-error { color:var(--red); }
+  .queue-remove { width:26px; height:26px; border-radius:6px; background:rgba(231,76,60,0.15); border:none; color:var(--red); font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+  /* BUTTONS */
+  .btn { width:100%; padding:14px; border-radius:10px; border:none; font-family:'Rajdhani',sans-serif; font-size:16px; font-weight:700; letter-spacing:1px; cursor:pointer; transition:.15s; }
+  .btn:active { transform:scale(0.97); }
+  .btn-gold { background:var(--gold); color:var(--navy); }
+  .btn-gold:disabled { background:#4a3a15; color:#7a6030; cursor:default; transform:none; }
+  .btn-outline { background:transparent; color:var(--gold); border:1.5px solid var(--border); }
+  .btn-danger { background:rgba(231,76,60,0.15); color:var(--red); border:1px solid rgba(231,76,60,0.3); }
+  .btn-green { background:var(--green); color:#0a1a0a; }
+  .btn-sm { padding:8px 14px; font-size:13px; width:auto; border-radius:8px; }
+
+  /* PROGRESS */
+  .progress-bar { height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; margin-top:8px; }
+  .progress-fill { height:100%; background:var(--gold); border-radius:2px; transition:width .3s; }
+
+  /* RESULTS TABLE */
+  .results-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .results-count { font-size:12px; color:var(--text-muted); }
+  .result-card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px; }
+  .result-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+  .result-row:last-child { border-bottom:none; }
+  .result-label { font-size:11px; color:var(--text-muted); flex-shrink:0; width:85px; }
+  .result-value { font-size:12px; color:var(--white); text-align:right; flex:1; font-weight:500; word-break:break-word; }
+  .result-value.editable { background:rgba(232,160,32,0.08); border:1px solid rgba(232,160,32,0.2); border-radius:5px; padding:2px 6px; color:var(--gold-light); font-family:'DM Sans',sans-serif; font-size:11px; min-width:80px; max-width:160px; text-align:right; }
+  .result-source { font-size:10px; color:var(--text-muted); margin-top:4px; display:flex; gap:6px; align-items:center; }
+  .badge { font-size:9px; padding:2px 6px; border-radius:4px; font-weight:600; letter-spacing:.5px; }
+  .badge-gold { background:rgba(232,160,32,0.15); color:var(--gold); border:1px solid rgba(232,160,32,0.3); }
+  .badge-green { background:rgba(46,204,113,0.15); color:var(--green); border:1px solid rgba(46,204,113,0.3); }
+
+  /* PASSENGERS TABLE */
+  .passengers-mini { margin-top:8px; }
+  .p-row { display:flex; gap:6px; font-size:10px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--text-muted); }
+  .p-row:first-child { color:var(--gold); font-weight:600; }
+  .p-row:last-child { border-bottom:none; }
+  .p-no { width:20px; flex-shrink:0; }
+  .p-epf { width:55px; flex-shrink:0; }
+  .p-dest { flex:1; }
+  .p-sig { width:60px; text-align:right; }
+
+  /* KEY INPUT */
+  .key-input-wrap { display:flex; gap:8px; align-items:center; }
+  .key-input { flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--white); font-size:13px; font-family:'DM Sans',sans-serif; }
+  .key-input::placeholder { color:var(--text-muted); }
+  .key-input:focus { outline:none; border-color:var(--gold); }
+  .key-status { font-size:11px; margin-top:6px; padding:6px 10px; border-radius:6px; }
+  .key-status.ok { background:rgba(46,204,113,0.1); color:var(--green); border:1px solid rgba(46,204,113,0.2); }
+  .key-status.bad { background:rgba(231,76,60,0.1); color:var(--red); border:1px solid rgba(231,76,60,0.2); }
+
+  /* EMPTY */
+  .empty-state { text-align:center; padding:40px 20px; color:var(--text-muted); }
+  .empty-state .e-icon { font-size:36px; margin-bottom:10px; }
+  .empty-state p { font-size:13px; line-height:1.6; }
+
+  /* MODAL */
+  #modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; align-items:flex-end; }
+  #modal-overlay.open { display:flex; }
+  #modal { background:var(--navy); border:1px solid var(--border); border-radius:20px 20px 0 0; padding:20px; width:100%; max-height:85vh; overflow-y:auto; }
+  #modal-title { font-family:'Rajdhani',sans-serif; font-size:17px; font-weight:700; color:var(--gold); margin-bottom:14px; }
+
+  /* TOAST */
+  #toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#253566; border:1px solid var(--border); border-radius:10px; padding:10px 18px; font-size:13px; color:var(--white); z-index:200; opacity:0; transition:.3s; pointer-events:none; white-space:nowrap; max-width:85vw; text-align:center; }
+  #toast.show { opacity:1; }
+
+  /* SPINNER */
+  .spinner { display:inline-block; width:16px; height:16px; border:2px solid rgba(232,160,32,0.3); border-top-color:var(--gold); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* STATS BAR */
+  .stats-bar { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .stat-box { background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:10px; text-align:center; }
+  .stat-num { font-family:'Rajdhani',sans-serif; font-size:22px; font-weight:700; color:var(--gold); }
+  .stat-label { font-size:10px; color:var(--text-muted); margin-top:2px; }
+
+  /* API KEY SCREEN */
+  .instruction-step { display:flex; gap:10px; align-items:flex-start; padding:8px 0; }
+  .step-num { width:22px; height:22px; border-radius:50%; background:rgba(232,160,32,0.15); border:1px solid var(--border); color:var(--gold); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .step-text { font-size:12px; color:var(--text-muted); line-height:1.6; }
+  .step-text a { color:var(--gold); text-decoration:none; }
+  .step-text strong { color:var(--white); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(232,160,32,0.3); border-radius:2px; }
+
+  @media (min-width:480px) {
+    #app { max-width:480px; margin:0 auto; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>&#9655; CARLTON GARMENTS</h1>
+    <p>Vehicle Gate Pass &amp; Transport Scanner</p>
+  </div>
+  <div id="tabs">
+    <div class="tab active" onclick="switchTab('scan')">SCAN</div>
+    <div class="tab" onclick="switchTab('results')">RESULTS</div>
+    <div class="tab" onclick="switchTab('settings')">SETTINGS</div>
+  </div>
+  <div id="content">
+
+    <!-- SCAN SCREEN -->
+    <div class="screen active" id="screen-scan">
+      <div class="stats-bar">
+        <div class="stat-box"><div class="stat-num" id="stat-queue">0</div><div class="stat-label">In Queue</div></div>
+        <div class="stat-box"><div class="stat-num" id="stat-done">0</div><div class="stat-label">Processed</div></div>
+        <div class="stat-box"><div class="stat-num" id="stat-errors">0</div><div class="stat-label">Errors</div></div>
+      </div>
+
+      <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="icon">📷</div>
+        <strong>Tap to Add Transport Forms</strong>
+        <p>Select photos from camera or gallery<br>Supports JPG, PNG — up to 50 sheets</p>
+      </div>
+      <input type="file" id="file-input" accept="image/*" multiple capture="environment" onchange="addFiles(this.files)">
+
+      <div id="queue-list" style="display:none; flex-direction:column; gap:8px;"></div>
+
+      <button class="btn btn-gold" id="process-btn" onclick="processAll()" disabled>EXTRACT DATA FROM PHOTOS</button>
+      <button class="btn btn-outline btn-sm" onclick="clearQueue()" id="clear-btn" style="display:none">Clear All</button>
+    </div>
+
+    <!-- RESULTS SCREEN -->
+    <div class="screen" id="screen-results">
+      <div class="results-header">
+        <span class="card-title" style="margin:0">EXTRACTED RECORDS</span>
+        <span class="results-count" id="results-count">0 records</span>
+      </div>
+      <div id="results-list">
+        <div class="empty-state"><div class="e-icon">📋</div><p>Scan transport forms first.<br>Extracted data will appear here.</p></div>
+      </div>
+      <div id="export-section" style="display:none; flex-direction:column; gap:10px;">
+        <button class="btn btn-green" onclick="exportExcel()">⬇ EXPORT TO EXCEL (.xlsx)</button>
+        <button class="btn btn-danger btn-sm" onclick="clearResults()">Clear All Results</button>
+      </div>
+    </div>
+
+    <!-- SETTINGS SCREEN -->
+    <div class="screen" id="screen-settings">
+      <div class="card">
+        <div class="card-title">ANTHROPIC API KEY</div>
+        <div style="background:rgba(232,160,32,0.08); border:1px solid rgba(232,160,32,0.25); border-radius:8px; padding:10px 12px; margin-bottom:12px;">
+          <p style="font-size:12px; color:var(--gold-light); line-height:1.6;">
+            ⚠ <strong style="color:var(--gold);">Important:</strong> Open this file in a web server or use <strong style="color:var(--white);">Chrome</strong> with the file opened via <code style="font-size:11px; background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:3px;">http://</code> not <code style="font-size:11px; background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:3px;">file://</code> for API calls to work. Or host on any free web host.
+          </p>
+        </div>
+        <div class="instruction-step">
+          <div class="step-num">1</div>
+          <div class="step-text">Visit <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> and sign in or create an account</div>
+        </div>
+        <div class="instruction-step">
+          <div class="step-num">2</div>
+          <div class="step-text">Go to <strong>API Keys</strong> → <strong>Create Key</strong> → copy the key starting with <strong>sk-ant-...</strong></div>
+        </div>
+        <div class="instruction-step">
+          <div class="step-num">3</div>
+          <div class="step-text">Paste below. Keys do <strong>not expire</strong> unless you delete them. Each user on their own phone/PC uses their own key.</div>
+        </div>
+        <div style="margin-top:12px;">
+          <div class="key-input-wrap">
+            <input type="password" class="key-input" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off">
+            <button class="btn btn-outline btn-sm" onclick="saveKey()">SAVE</button>
+          </div>
+          <div id="key-status" style="display:none" class="key-status"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">EXCEL COLUMNS</div>
+        <p style="font-size:12px; color:var(--text-muted); line-height:1.6;">Exported file matches your format:<br>
+          <span style="color:var(--white);">Date · Driver Name · Vehicle No · Destination · Description · Vehicle Type · Rate · No of KM · Amount · Departure · Arrival</span>
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">INSTALL AS APP</div>
+        <p style="font-size:12px; color:var(--text-muted); line-height:1.6;">
+          In Chrome: tap the <strong style="color:var(--white);">⋮ menu</strong> → <strong style="color:var(--white);">"Add to Home screen"</strong><br>
+          This runs fully offline once installed.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">HOW TO HOST (IMPORTANT)</div>
+        <p style="font-size:12px; color:var(--text-muted); line-height:1.8;">
+          API calls require <strong style="color:var(--white);">http://</strong> not <strong style="color:var(--white);">file://</strong><br>
+          <strong style="color:var(--gold);">Option 1:</strong> <span style="color:var(--white);">Python</span> — open terminal in the folder and run:<br>
+          <code style="font-size:11px; background:rgba(0,0,0,0.4); padding:3px 8px; border-radius:4px; display:block; margin:4px 0;">python -m http.server 8080</code>
+          Then open <code style="font-size:11px; background:rgba(0,0,0,0.4); padding:2px 6px; border-radius:4px;">http://localhost:8080</code> in Chrome<br><br>
+          <strong style="color:var(--gold);">Option 2:</strong> Upload to <span style="color:var(--white);">GitHub Pages, Netlify, or any web host</span> (free) — works permanently for all users.<br><br>
+          <strong style="color:var(--gold);">On Android:</strong> Use Chrome → open the hosted URL → ⋮ → Add to Home screen.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">ABOUT</div>
+        <p style="font-size:12px; color:var(--text-muted); line-height:1.6;">
+          Carlton Garments (Pvt) Ltd<br>
+          Transport Form OCR Scanner v1.1<br>
+          Uses Claude Haiku Vision AI · Up to 50 sheets<br>
+          Each user stores their own API key locally
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" onclick="closeModal(event)">
+  <div id="modal">
+    <div id="modal-title">Review Extracted Data</div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ─── STATE ───────────────────────────────────────────────
+let queue = [];         // {id, file, name, thumb, status, data}
+let results = [];       // extracted records
+let nextId = 0;
+
+const PROMPT = `You are an OCR engine for Carlton Garments (Pvt) Ltd transport forms.
+Extract ALL data from this Vehicle Gate Pass & Transport Order form image.
+
+Return ONLY valid JSON — no markdown, no extra text — in this exact format:
+{
+  "date": "DD/MM/YYYY",
+  "driver_name": "string",
+  "vehicle_number": "string",
+  "departure_time": "HH:MM AM/PM",
+  "arrival_time": "HH:MM AM/PM",
+  "starting_meter": "string",
+  "end_meter": "string",
+  "number_of_km": number_or_null,
+  "rate_per_km": number_or_null,
+  "amount": number_or_null,
+  "description": "OT TRANSPORT or purpose text",
+  "vehicle_type": "VAN or BUS or CAB etc",
+  "passengers": [
+    {"no": 1, "epf_no": "string", "destination": "string", "signature": "string"}
+  ]
+}
+
+For destination: use the most common passenger destination or form header destination.
+For description: use the purpose/description field (e.g. OT TRANSPORT, SUB ROUTE, EXTRA TRANSPORT).
+For vehicle_type: infer from context (VAN, BUS, CAB, LARGE BUS).
+If a field is unclear or missing, use null.
+Return only the JSON object.`;
+
+// ─── TAB SWITCHING ────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('screen-' + tab).classList.add('active');
+  if (tab === 'results') renderResults();
+}
+
+// ─── API KEY ──────────────────────────────────────────────
+function loadKey() {
+  const k = localStorage.getItem('cg_api_key') || '';
+  if (k) document.getElementById('api-key-input').value = k;
+  return k;
+}
+function saveKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k.startsWith('sk-ant')) {
+    showKeyStatus('Key must start with sk-ant-...', false);
+    return;
+  }
+  localStorage.setItem('cg_api_key', k);
+  showKeyStatus('API key saved successfully!', true);
+}
+function showKeyStatus(msg, ok) {
+  const el = document.getElementById('key-status');
+  el.style.display = 'block';
+  el.className = 'key-status ' + (ok ? 'ok' : 'bad');
+  el.textContent = msg;
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+// ─── FILE HANDLING ────────────────────────────────────────
+function addFiles(files) {
+  for (const f of files) {
+    const id = nextId++;
+    const item = { id, file: f, name: f.name, thumb: null, status: 'pending', data: null };
+    queue.push(item);
+    // Create thumbnail
+    const reader = new FileReader();
+    reader.onload = e => {
+      item.thumb = e.target.result;
+      renderQueue();
+    };
+    reader.readAsDataURL(f);
+  }
+  renderQueue();
+  updateStats();
+  document.getElementById('file-input').value = '';
+}
+
+function removeFromQueue(id) {
+  queue = queue.filter(q => q.id !== id);
+  renderQueue();
+  updateStats();
+}
+
+function clearQueue() {
+  queue = queue.filter(q => q.status === 'done');
+  renderQueue();
+  updateStats();
+}
+
+function renderQueue() {
+  const list = document.getElementById('queue-list');
+  const pending = queue.filter(q => q.status !== 'done');
+  if (queue.length === 0) {
+    list.style.display = 'none';
+    document.getElementById('clear-btn').style.display = 'none';
+    document.getElementById('process-btn').disabled = true;
+    return;
+  }
+  list.style.display = 'flex';
+  document.getElementById('clear-btn').style.display = 'block';
+
+  const hasPending = queue.some(q => q.status === 'pending' || q.status === 'error');
+  const btn = document.getElementById('process-btn');
+  btn.disabled = !hasPending;
+  btn.textContent = queue.some(q => q.status === 'error') && !queue.some(q => q.status === 'pending')
+    ? 'RETRY FAILED PHOTOS' : 'EXTRACT DATA FROM PHOTOS';
+
+  list.innerHTML = queue.map(item => `
+    <div class="queue-item" id="qi-${item.id}">
+      ${item.thumb ? `<img class="queue-thumb" src="${item.thumb}">` : `<div class="queue-thumb"></div>`}
+      <div class="queue-info">
+        <div class="queue-name">${item.name}</div>
+        <div class="queue-status status-${item.status}">
+          ${item.status === 'processing' ? '<span class="spinner"></span>' : ''}
+          ${statusLabel(item.status)}
+        </div>
+        ${item.error ? `<div style="font-size:10px; color:#e74c3c; margin-top:2px;">${item.error}</div>` : ''}
+        ${item.status === 'processing' ? '<div class="progress-bar"><div class="progress-fill" style="width:70%"></div></div>' : ''}
+      </div>
+      ${item.status !== 'processing' ? `<button class="queue-remove" onclick="removeFromQueue(${item.id})">✕</button>` : ''}
+    </div>
+  `).join('');
+}
+
+function statusLabel(s) {
+  return { pending: 'Waiting...', processing: 'Extracting data...', done: '✓ Extracted', error: '✗ Failed — will retry' }[s] || s;
+}
+
+function updateStats() {
+  document.getElementById('stat-queue').textContent = queue.filter(q => q.status === 'pending').length;
+  document.getElementById('stat-done').textContent = results.length;
+  document.getElementById('stat-errors').textContent = queue.filter(q => q.status === 'error').length;
+}
+
+// ─── PROCESSING ───────────────────────────────────────────
+async function processAll() {
+  const key = loadKey();
+  if (!key || !key.startsWith('sk-ant')) {
+    showToast('Please save your API key in Settings first');
+    switchTab('settings');
+    document.querySelectorAll('.tab')[2].classList.add('active');
+    return;
+  }
+  const pending = queue.filter(q => q.status === 'pending' || q.status === 'error');
+  if (!pending.length) return;
+
+  document.getElementById('process-btn').disabled = true;
+
+  for (const item of pending) {
+    item.status = 'processing';
+    item.error = null;
+    renderQueue();
+    try {
+      const data = await extractFromImage(item.file, key);
+      item.status = 'done';
+      item.data = data;
+      item.error = null;
+      results.push({ ...data, _source: item.name, _id: Date.now() + Math.random() });
+    } catch (e) {
+      item.status = 'error';
+      item.error = e.message || 'Unknown error';
+      console.error('Extraction error:', item.name, e);
+    }
+    renderQueue();
+    updateStats();
+  }
+
+  const doneCount = queue.filter(q => q.status === 'done').length;
+  const errCount = queue.filter(q => q.status === 'error').length;
+  if (errCount > 0) {
+    showToast(`Done: ${doneCount} ✓  Failed: ${errCount} — retry failed ones`);
+  } else {
+    showToast(`All ${doneCount} form${doneCount !== 1 ? 's' : ''} processed successfully!`);
+  }
+  renderResults();
+
+  // Re-enable button if there are still errors to retry
+  const hasRetryable = queue.some(q => q.status === 'error' || q.status === 'pending');
+  document.getElementById('process-btn').disabled = !hasRetryable;
+  if (hasRetryable) document.getElementById('process-btn').textContent = 'RETRY FAILED PHOTOS';
+}
+
+async function extractFromImage(file, apiKey) {
+  // Convert to base64
+  const b64 = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+
+  const mediaType = file.type || 'image/jpeg';
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1500,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+          { type: 'text', text: PROMPT }
+        ]
+      }]
+    })
+  });
+
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}));
+    const msg = errBody.error?.message || 'API error ' + response.status;
+    // Surface friendly errors
+    if (response.status === 401) throw new Error('Invalid API key — check Settings');
+    if (response.status === 429) throw new Error('Rate limit hit — wait a moment and retry');
+    if (response.status === 400) throw new Error('Bad request: ' + msg);
+    throw new Error(msg);
+  }
+
+  const result = await response.json();
+  const text = result.content.map(c => c.text || '').join('').trim();
+  // Strip markdown fences if any
+  const clean = text.replace(/```json[\s\S]*?```|```/g, '').trim();
+  let parsed;
+  try { parsed = JSON.parse(clean); }
+  catch(e) {
+    // Try to extract JSON object from response
+    const match = clean.match(/\{[\s\S]*\}/);
+    if (match) parsed = JSON.parse(match[0]);
+    else throw new Error('Could not parse AI response as JSON');
+  }
+  return parsed;
+}
+
+// ─── RESULTS ─────────────────────────────────────────────
+function renderResults() {
+  const list = document.getElementById('results-list');
+  const exportSec = document.getElementById('export-section');
+  document.getElementById('results-count').textContent = results.length + ' record' + (results.length !== 1 ? 's' : '');
+
+  if (!results.length) {
+    list.innerHTML = '<div class="empty-state"><div class="e-icon">📋</div><p>Scan transport forms first.<br>Extracted data will appear here.</p></div>';
+    exportSec.style.display = 'none';
+    return;
+  }
+
+  exportSec.style.display = 'flex';
+  list.innerHTML = results.map((r, i) => `
+    <div class="result-card" style="margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span class="badge badge-gold">#${i + 1} &nbsp; ${r.date || 'No date'}</span>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-outline btn-sm" style="padding:5px 10px; font-size:11px;" onclick="editResult(${i})">EDIT</button>
+          <button class="btn btn-danger btn-sm" style="padding:5px 10px; font-size:11px;" onclick="deleteResult(${i})">DEL</button>
+        </div>
+      </div>
+      <div class="result-row"><span class="result-label">Driver</span><span class="result-value">${r.driver_name || '—'}</span></div>
+      <div class="result-row"><span class="result-label">Vehicle</span><span class="result-value">${r.vehicle_number || '—'}</span></div>
+      <div class="result-row"><span class="result-label">Destination</span><span class="result-value">${getDestination(r)}</span></div>
+      <div class="result-row"><span class="result-label">Description</span><span class="result-value">${r.description || '—'}</span></div>
+      <div class="result-row"><span class="result-label">Type</span><span class="result-value">${r.vehicle_type || '—'}</span></div>
+      <div class="result-row"><span class="result-label">Rate/KM</span><span class="result-value">${r.rate_per_km != null ? r.rate_per_km : '—'}</span></div>
+      <div class="result-row"><span class="result-label">KM</span><span class="result-value">${r.number_of_km != null ? r.number_of_km : '—'}</span></div>
+      <div class="result-row"><span class="result-label">Amount</span><span class="result-value">${r.amount != null ? r.amount : (r.rate_per_km && r.number_of_km ? (r.rate_per_km * r.number_of_km).toFixed(0) : '—')}</span></div>
+      <div class="result-row"><span class="result-label">Departure</span><span class="result-value">${r.departure_time || '—'}</span></div>
+      <div class="result-row"><span class="result-label">Arrival</span><span class="result-value">${r.arrival_time || '—'}</span></div>
+      ${r.passengers && r.passengers.length ? `
+        <div style="margin-top:8px;">
+          <div style="font-size:10px; color:var(--gold); margin-bottom:4px;">PASSENGERS (${r.passengers.length})</div>
+          <div class="passengers-mini">
+            <div class="p-row"><span class="p-no">No</span><span class="p-epf">EPF</span><span class="p-dest">Destination</span><span class="p-sig">Signature</span></div>
+            ${r.passengers.slice(0, 5).map(p => `
+              <div class="p-row">
+                <span class="p-no">${p.no}</span>
+                <span class="p-epf">${p.epf_no || '—'}</span>
+                <span class="p-dest">${p.destination || '—'}</span>
+                <span class="p-sig">${p.signature || '—'}</span>
+              </div>
+            `).join('')}
+            ${r.passengers.length > 5 ? `<div class="p-row"><span style="color:var(--gold);">+${r.passengers.length - 5} more...</span></div>` : ''}
+          </div>
+        </div>
+      ` : ''}
+      <div class="result-source"><span class="badge badge-green">AI EXTRACTED</span><span>from ${r._source || 'image'}</span></div>
+    </div>
+  `).join('');
+}
+
+function getDestination(r) {
+  if (r.passengers && r.passengers.length) {
+    // Find most common destination
+    const dests = r.passengers.map(p => p.destination).filter(Boolean);
+    if (dests.length) return dests[0]; // simplified
+  }
+  return r.destination || '—';
+}
+
+function deleteResult(i) {
+  results.splice(i, 1);
+  renderResults();
+  updateStats();
+  showToast('Record deleted');
+}
+
+function editResult(i) {
+  const r = results[i];
+  document.getElementById('modal-title').textContent = 'Edit Record #' + (i + 1);
+  document.getElementById('modal-body').innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      ${editField('Date', 'date', r.date, i)}
+      ${editField('Driver Name', 'driver_name', r.driver_name, i)}
+      ${editField('Vehicle No', 'vehicle_number', r.vehicle_number, i)}
+      ${editField('Description', 'description', r.description, i)}
+      ${editField('Vehicle Type', 'vehicle_type', r.vehicle_type, i)}
+      ${editField('Rate/KM', 'rate_per_km', r.rate_per_km, i)}
+      ${editField('No. of KM', 'number_of_km', r.number_of_km, i)}
+      ${editField('Amount', 'amount', r.amount, i)}
+      ${editField('Departure', 'departure_time', r.departure_time, i)}
+      ${editField('Arrival', 'arrival_time', r.arrival_time, i)}
+      <button class="btn btn-gold" onclick="saveEdit(${i})">SAVE CHANGES</button>
+    </div>
+  `;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function editField(label, key, value, i) {
+  return `
+    <div>
+      <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">${label}</div>
+      <input class="key-input" id="ef-${key}" value="${value != null ? value : ''}" placeholder="${label}">
+    </div>
+  `;
+}
+
+function saveEdit(i) {
+  const fields = ['date','driver_name','vehicle_number','description','vehicle_type','rate_per_km','number_of_km','amount','departure_time','arrival_time'];
+  fields.forEach(f => {
+    const el = document.getElementById('ef-' + f);
+    if (el) {
+      const v = el.value.trim();
+      results[i][f] = ['rate_per_km','number_of_km','amount'].includes(f) ? (v ? parseFloat(v) : null) : (v || null);
+    }
+  });
+  closeModal();
+  renderResults();
+  showToast('Record updated');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay')) {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+}
+
+function clearResults() {
+  if (!confirm('Clear all extracted records?')) return;
+  results = [];
+  renderResults();
+  updateStats();
+}
+
+// ─── EXCEL EXPORT ─────────────────────────────────────────
+function exportExcel() {
+  if (!results.length) { showToast('No data to export'); return; }
+
+  const headers = ['', 'date', 'name', 'vehicle no', 'destination', 'description', 'vehicle type', 'rate', 'no of km', 'amt', 'departure', 'arrival'];
+
+  const rows = [
+    new Array(12).fill(null), // blank row 1
+    headers,
+    ...results.map((r, i) => {
+      const rowNum = i + 3; // Excel row for formula
+      const dest = getDestination(r);
+      const rate = r.rate_per_km || null;
+      const km = r.number_of_km || null;
+      const amt = rate && km ? { f: `H${rowNum}*I${rowNum}` } : (r.amount || null);
+      return [
+        null,
+        r.date || null,
+        r.driver_name || null,
+        r.vehicle_number || null,
+        dest !== '—' ? dest : null,
+        r.description || 'OT TRANSPORT',
+        r.vehicle_type || null,
+        rate,
+        km,
+        amt,
+        r.departure_time || null,
+        r.arrival_time || null
+      ];
+    })
+  ];
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:3},{wch:12},{wch:14},{wch:12},{wch:30},{wch:18},{wch:12},{wch:6},{wch:8},{wch:10},{wch:12},{wch:12}
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Transport');
+  const today = new Date();
+  const fname = `CG_Transport_${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  showToast('Excel file downloaded!');
+}
+
+// ─── TOAST ────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+loadKey();
+updateStats();
+</script>
+</body>
+</html>
